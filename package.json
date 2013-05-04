@@ -1,0 +1,7 @@
+{
+  "name": "echoprint-codegen",
+  "description": "Echoprint Codegen Addon for Node.js",
+  "version": "0.0.1",
+  "author": "Greg Thornton <xdissent@me.com>",
+  "main": "ecg.js"
+}
