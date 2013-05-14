@@ -1,5 +1,5 @@
-echoprint-codegen
-=================
+node-echoprint-codegen
+======================
 
 Echoprint Codegen Addon for Node.js
 
@@ -7,17 +7,24 @@ Echoprint Codegen Addon for Node.js
 Requirements
 ------------
 
-You must have the [echoprint-codegen library](https://github.com/echonest/echoprint-codegen) installed:
+From the [echoprint-codegen README](https://github.com/echonest/echoprint-codegen/blob/master/README.md):
+
+* [Boost](http://boost.org) >= 1.35
+* [TagLib](http://taglib.github.io)
+* [ffmpeg](http://ffmpeg.org) **Only required for filename mode**
+* zlib
+
+For Ubuntu/Debian:
 
 ```sh
-$ git clone https://github.com/echonest/echoprint-codegen.git
-$ cd echoprint-codegen/src
-$ make
-$ sudo make install
-$ sudo ldconfig # To tell ld about libcodegen
+$ sudo apt-get install libboost1.42-dev libtag1-dev zlib1g-dev [ffmpeg]
 ```
 
-See the [echoprint-codegen README](https://github.com/echonest/echoprint-codegen/blob/master/README.md) for further requirements.
+For OS X:
+
+```sh
+brew install boost taglib [ffmpeg]
+```
 
 
 Installation
@@ -33,14 +40,53 @@ $ npm install git+https://github.com/xdissent/node-echoprint-codegen.git
 Usage
 -----
 
+There are two modes of operation: `filename` and `buffer`. Filename mode **requires** the `ffmpeg` command to be available on your path. It takes a filename and an optional start time and duration, and returns and object containing various metadata as well as the generated code:
+
 ```js
 var ecg = require('echoprint-codegen');
 
-// buffer -     A Buffer of mono float 32 little-endian PCM data with a 11025 sample rate
-// numSamples - The number of samples contained in buffer (ie. buffer.length / 4)
-// songOffset - Hint about at which time in the song the samples in buffer occur
-// callback -   Callback function which will receive the generated code
-ecg(buffer, numSamples, songOffset, callback);
+// ecg(filename, start, duration, callback);
+//
+// filename - The path to a file of any type which ffmpeg can read
+// start    - Sample after this number of seconds of audio (optional)
+// duration - The length of the sample to use (optional - required if start given)
+// callback - Callback function which will receive the generated code
+
+// Example - Sample entire mp3 file:
+ecg('/tmp.mp3', function(err, data) {
+  if (err) throw err;
+  console.log(data.code);
+});
+
+// Example - Sample 30 seconds of audio beginning at 10 seconds:
+ecg('/tmp.mp3', 10, 30, function(err, data) {
+  if (err) throw err;
+  console.log(data.code);
+});
+```
+
+The second mode of operation is `buffer` mode, in which PCM audio data is passed directly into the code generator via buffer. The generated code is passed to the callback as a string - there is no extra metadata returned:
+
+```js
+var ecg = require('echoprint-codegen');
+
+// ecg(buffer, start, callback);
+//
+// buffer   - Buffer of mono 32 bit le float PCM data with a sample rate of 11025
+// start    - Hint indicating at which point the samples occur in the song (optional)
+// callback - Callback function which will receive the generated code
+
+// Example - Pass a buffer presumably taken from the beginning of a song:
+ecg(buffer, function(err, code) {
+  if (err) throw err;
+  console.log(code);
+});
+
+// Example - Pass a buffer taken from 10 seconds into the song:
+ecg(buffer, 10, function(err, code) {
+  if (err) throw err;
+  console.log(code);
+});
 ```
 
 
@@ -53,14 +99,12 @@ Reading from a PCM file directly:
 var ecg = require('echoprint-codegen'),
   fs = require('fs');
 
-var numSamples = 330750,  // Number of samples to read from file (30 seconds)
-  songOffset = 0,         // Sample is from the beginning of the song
-  
-  bytesPerSample = 4,     // Samples are 32 bit floats
-  bufferSize = numSamples * bytesPerSample,
+var samples = 11025 * 30,     // Number of samples to read from file (30 seconds)
+  start = 0,                  // Sample is from the beginning of the song
+  bufferSize = samples * 4,   // Samples are 32 bit floats
   buffer = new Buffer(bufferSize);
 
-fs.open('./test.pcm', 'r', function (err, fd) {
+fs.open('/test.pcm', 'r', function (err, fd) {
   if (err) throw "Error opening file";
 
   // Read samples from file
@@ -69,7 +113,10 @@ fs.open('./test.pcm', 'r', function (err, fd) {
     if (bytesRead < bufferSize) throw "Couldn't read enough";
 
     // Generate echoprint code
-    ecg(buffer, numSamples, songOffset, console.log);
+    ecg(buffer, start, function(err, code) {
+      if (err) throw err;
+      console.log(code);
+    });
   });
 });
 ```
@@ -83,18 +130,16 @@ var ecg = require('echoprint-codegen'),
 
 var duration = 30,                // Length of clip to extract
   numSamples = 11025 * duration,  // Number of samples to read
-  songOffset = 0,                 // Start time of clip in seconds
-  
-  bytesPerSample = 4,     // Samples are 32 bit floats
-  bufferSize = numSamples * bytesPerSample;
+  start = 0,                      // Start time of clip in seconds
+  bufferSize = numSamples * 4;    // Samples are 32 bit floats
 
 var ffmpeg = child_process.spawn('ffmpeg', [
-  '-i', './test.mp3',   // MP3 file
-  '-f', 'f32le',        // 32 bit float PCM LE
+  '-i',  '/test.mp3',   // MP3 file
+  '-f',  'f32le',       // 32 bit float PCM LE
   '-ar', '11025',       // Sampling rate
-  '-ac', 1,             // Mono
-  '-t', duration,       // Duration in seconds
-  '-ss', songOffset,    // Start time in seconds
+  '-ac',  1,            // Mono
+  '-t',   duration,     // Duration in seconds
+  '-ss',  start,        // Start time in seconds
   'pipe:1'              // Output on stdout
 ]);
 
@@ -108,6 +153,9 @@ ffmpeg.stdout.on('readable', function() {
   ffmpeg.kill('SIGHUP');
 
   // Generate echoprint code
-  ecg(buffer, numSamples, songOffset, console.log);
+  ecg(buffer, start, function(err, code) {
+    if (err) throw err;
+    console.log(code);
+  });
 });
 ```
