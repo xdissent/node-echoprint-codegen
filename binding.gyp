@@ -19,13 +19,7 @@
         "include_dirs": [ "echoprint-codegen/src" ],
         "libraries": [ "-lcodegen" ]
       },
-      "include_dirs": [
-        "<!@(pkg-config taglib --cflags-only-I | sed s/-I//g)"
-      ],
-      "libraries": [
-        "<!@(pkg-config taglib --libs)",
-        "-lz"
-      ],
+      "libraries": [ "-lz" ],
       "cflags!": [ "-fno-exceptions" ],
       "cflags_cc!": [ "-fno-exceptions", "-Wno-overloaded-virtual" ],
       "conditions": [
