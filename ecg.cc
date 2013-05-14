@@ -94,15 +94,11 @@ void BeginGenerate(Baton* baton) {
 
 void DoGenerate(uv_work_t* req) {
   // Generate code
-  fprintf(stderr, "GENERATING\n");
-
   Baton* baton = static_cast<Baton*>(req->data);
   if (!baton->overflow && !baton->underflow) {
     Codegen *cg = new Codegen(baton->pcm, baton->samples, baton->offset);
     baton->code = cg->getCodeString();
   }
-
-  fprintf(stderr, "DONE GENERATING\n");
 }
 
 void AfterGenerate(uv_work_t* req) {
