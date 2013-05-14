@@ -4,5 +4,15 @@
   "version": "0.0.1",
   "author": "Greg Thornton <xdissent@me.com>",
   "license": "MIT",
-  "main": "ecg.js"
+  "main": "ecg.js",
+  "bin": {
+    "echoprint-codegen": "main.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "coffee-script": ">= 1.6.2"
+  },
+  "scripts": {
+    "prepublish": "coffee -cb ecg.coffee"
+  }
 }
